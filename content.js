@@ -22,6 +22,47 @@
     let menuOpen = false;
 
     // === Helper Functions ===
+    const rgbToHsl = (r, g, b) => {
+        r /= 255; g /= 255; b /= 255;
+        const max = Math.max(r, g, b), min = Math.min(r, g, b);
+        let h, s, l = (max + min) / 2;
+        if (max === min) {
+            h = s = 0;
+        } else {
+            const d = max - min;
+            s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+                case g: h = ((b - r) / d + 2) / 6; break;
+                case b: h = ((r - g) / d + 4) / 6; break;
+            }
+        }
+        return [h * 360, s * 100, l * 100];
+    };
+
+    const hslToRgb = (h, s, l) => {
+        h /= 360; s /= 100; l /= 100;
+        let r, g, b;
+        if (s === 0) {
+            r = g = b = l;
+        } else {
+            const hue2rgb = (p, q, t) => {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1/6) return p + (q - p) * 6 * t;
+                if (t < 1/2) return q;
+                if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                return p;
+            };
+            const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            const p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+        }
+        return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    };
+
     const makeLine = (styles) => {
         const div = document.createElement('div');
         Object.assign(div.style, {
@@ -162,7 +203,6 @@
             currentDesign = name;
             localStorage.setItem("miniblox_crosshair", name);
             updateCrosshair();
-            // Update all button styles
             menu.querySelectorAll('button').forEach(b => {
                 b.style.background = '#222';
                 b.style.fontWeight = 'normal';
@@ -173,67 +213,173 @@
         menu.appendChild(btn);
     });
 
-    // === Color Sliders ===
+    // === Color Wheel ===
     const colorSection = document.createElement('div');
     colorSection.style.marginTop = '10px';
     colorSection.innerHTML = `<hr style="border:1px solid #444;margin:10px 0;"><b>Color:</b><br>`;
     menu.appendChild(colorSection);
 
+    // Color wheel canvas
+    const wheelCanvas = document.createElement('canvas');
+    wheelCanvas.width = 150;
+    wheelCanvas.height = 150;
+    wheelCanvas.style.cursor = 'crosshair';
+    wheelCanvas.style.margin = '10px auto';
+    wheelCanvas.style.display = 'block';
+    wheelCanvas.style.borderRadius = '50%';
+    wheelCanvas.style.border = '2px solid #555';
+    colorSection.appendChild(wheelCanvas);
+
+    const ctx = wheelCanvas.getContext('2d');
+    const centerX = wheelCanvas.width / 2;
+    const centerY = wheelCanvas.height / 2;
+    const radius = wheelCanvas.width / 2 - 2;
+
+    // Draw color wheel
+    const drawColorWheel = () => {
+        for (let angle = 0; angle < 360; angle += 1) {
+            const startAngle = (angle - 90) * Math.PI / 180;
+            const endAngle = (angle - 89) * Math.PI / 180;
+            
+            for (let r = 0; r < radius; r += 1) {
+                const saturation = (r / radius) * 100;
+                const lightness = 50;
+                const [red, green, blue] = hslToRgb(angle, saturation, lightness);
+                
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, r, startAngle, endAngle);
+                ctx.strokeStyle = `rgb(${red},${green},${blue})`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+        }
+    };
+    drawColorWheel();
+
+    // Current color indicator
+    const colorIndicator = document.createElement('div');
+    Object.assign(colorIndicator.style, {
+        position: 'absolute',
+        width: '12px',
+        height: '12px',
+        border: '2px solid white',
+        borderRadius: '50%',
+        pointerEvents: 'none',
+        boxShadow: '0 0 3px black',
+        display: 'none'
+    });
+    wheelCanvas.parentElement.style.position = 'relative';
+    colorSection.appendChild(colorIndicator);
+
+    // Update indicator position based on current color
+    const updateIndicator = () => {
+        const rgb = currentColor.match(/\d+/g).map(Number);
+        const [h, s, l] = rgbToHsl(rgb[0], rgb[1], rgb[2]);
+        const angle = (h - 90) * Math.PI / 180;
+        const dist = (s / 100) * radius;
+        const x = centerX + dist * Math.cos(angle);
+        const y = centerY + dist * Math.sin(angle);
+        
+        colorIndicator.style.left = `${x + 75 - 8}px`;
+        colorIndicator.style.top = `${y + 10 - 8}px`;
+        colorIndicator.style.display = 'block';
+    };
+    updateIndicator();
+
+    // Color preview
     const colorPreview = document.createElement('div');
     Object.assign(colorPreview.style, {
-        width: '50px',
-        height: '25px',
-        margin: '8px auto',
+        width: '60px',
+        height: '30px',
+        margin: '10px auto',
         background: currentColor,
-        borderRadius: '4px',
+        borderRadius: '6px',
         border: '2px solid #555',
-        transition: 'background-color 0.3s ease'
+        transition: 'background-color 0.3s ease',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
     });
     colorSection.appendChild(colorPreview);
 
-    ['R','G','B'].forEach((label, i) => {
-        const wrap = document.createElement('div');
-        wrap.style.margin = '5px 0';
-        const text = document.createElement('span');
-        text.textContent = `${label}: `;
-        text.style.display = 'inline-block';
-        text.style.width = '25px';
-        text.style.textAlign = 'left';
-        const slider = document.createElement('input');
-        slider.type = 'range';
-        slider.min = 0;
-        slider.max = 255;
-        slider.value = parseInt(currentColor.match(/\d+/g)?.[i] || 255);
-        slider.style.width = '120px';
-        slider.style.verticalAlign = 'middle';
-        slider.dataset.channel = label;
+    // Color wheel interaction
+    let isDragging = false;
+    const updateColorFromWheel = (e) => {
+        const rect = wheelCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
         
-        const valueLabel = document.createElement('span');
-        valueLabel.textContent = slider.value;
-        valueLabel.style.display = 'inline-block';
-        valueLabel.style.width = '35px';
-        valueLabel.style.marginLeft = '5px';
-        valueLabel.style.fontSize = '12px';
+        const dx = x - centerX;
+        const dy = y - centerY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
         
-        slider.addEventListener('input', () => {
-            valueLabel.textContent = slider.value;
-            const [r,g,b] = ['R','G','B'].map(l => colorSection.querySelector(`input[data-channel="${l}"]`).value);
+        if (distance <= radius) {
+            let angle = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+            if (angle < 0) angle += 360;
+            
+            const saturation = Math.min((distance / radius) * 100, 100);
+            const lightness = 50;
+            
+            const [r, g, b] = hslToRgb(angle, saturation, lightness);
             currentColor = `rgb(${r},${g},${b})`;
             localStorage.setItem("miniblox_crosshair_color", currentColor);
             colorPreview.style.background = currentColor;
+            updateIndicator();
             
-            // Update crosshair colors
             crosshairContainer.querySelectorAll('div').forEach(el => {
                 if (el.style.backgroundColor) el.style.backgroundColor = currentColor;
                 if (el.style.borderColor) el.style.borderColor = currentColor;
             });
-        });
-        
-        wrap.appendChild(text);
-        wrap.appendChild(slider);
-        wrap.appendChild(valueLabel);
-        colorSection.appendChild(wrap);
+        }
+    };
+
+    wheelCanvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        updateColorFromWheel(e);
     });
+
+    document.addEventListener('mousemove', (e) => {
+        if (isDragging) {
+            updateColorFromWheel(e);
+        }
+    });
+
+    document.addEventListener('mouseup', () => {
+        isDragging = false;
+    });
+
+    wheelCanvas.addEventListener('click', updateColorFromWheel);
+
+    // Brightness slider
+    const brightnessWrap = document.createElement('div');
+    brightnessWrap.style.margin = '10px 0';
+    brightnessWrap.innerHTML = '<b>Brightness:</b><br>';
+    colorSection.appendChild(brightnessWrap);
+
+    const brightnessSlider = document.createElement('input');
+    brightnessSlider.type = 'range';
+    brightnessSlider.min = 20;
+    brightnessSlider.max = 100;
+    brightnessSlider.value = 50;
+    brightnessSlider.style.width = '140px';
+    brightnessSlider.style.verticalAlign = 'middle';
+    brightnessSlider.style.margin = '5px';
+
+    brightnessSlider.addEventListener('input', () => {
+        const rgb = currentColor.match(/\d+/g).map(Number);
+        const [h, s, l] = rgbToHsl(rgb[0], rgb[1], rgb[2]);
+        const newL = parseFloat(brightnessSlider.value);
+        
+        const [r, g, b] = hslToRgb(h, s, newL);
+        currentColor = `rgb(${r},${g},${b})`;
+        localStorage.setItem("miniblox_crosshair_color", currentColor);
+        colorPreview.style.background = currentColor;
+        
+        crosshairContainer.querySelectorAll('div').forEach(el => {
+            if (el.style.backgroundColor) el.style.backgroundColor = currentColor;
+            if (el.style.borderColor) el.style.borderColor = currentColor;
+        });
+    });
+
+    brightnessWrap.appendChild(brightnessSlider);
 
     // === Toggle Button ===
     const toggleSection = document.createElement('div');
@@ -271,14 +417,12 @@
     document.addEventListener('keydown', e => {
         const key = e.key.toLowerCase();
         
-        // Toggle menu with backslash or F5
         if (key === '\\' || key === 'f5') {
-            e.preventDefault(); // Prevent F5 refresh
+            e.preventDefault();
             menuOpen = !menuOpen;
             menu.style.display = menuOpen ? 'block' : 'none';
         }
         
-        // Hide crosshair when certain keys are pressed (inventory, pause, etc)
         if (['escape', 'e', 'tab'].includes(key)) {
             crosshairContainer.style.opacity = '0';
             setTimeout(() => {
@@ -291,7 +435,6 @@
 
     // === Hide Default Crosshair ===
     const hideDefaultCrosshair = () => {
-        // Try multiple selectors for the default crosshair
         const selectors = ['.css-xhoozx', '[class*="crosshair"]', '[class*="reticle"]'];
         selectors.forEach(selector => {
             const defaultCrosshair = document.querySelector(selector);
@@ -301,11 +444,8 @@
         });
     };
 
-    // Check for default crosshair periodically
     new MutationObserver(hideDefaultCrosshair).observe(document.body, { childList: true, subtree: true });
     setInterval(hideDefaultCrosshair, 1000);
-    
-    // Initial hide
     setTimeout(hideDefaultCrosshair, 500);
 
     console.log('✓ Miniblox Custom Crosshair loaded! Press \\ or F5 to open settings.');
