@@ -1,5 +1,5 @@
 {
-  "manifest_version": 3.1,
+  "manifest_version": 4,
   "name": "Miniblox Custom Crosshair!",
   "version": "1.0",
   "description": "Adds a customizable crosshair with color sliders for Miniblox. M1ddleM1n approved",
@@ -15,4 +15,5 @@
   },
   "host_permissions": ["https://miniblox.io/*"]
 }
+
 
