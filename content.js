@@ -264,7 +264,7 @@
     // === Toggle menu and Key-based Hide Logic ===
     document.addEventListener('keydown', e => {
         // Toggle menu when '=' is pressed
-        if (e.key === '=') {
+        if (e.key === '\\') {
             menu.style.display = (menu.style.display === 'none') ? 'block' : 'none';
         }
 
@@ -334,3 +334,4 @@
     new MutationObserver(checkCrosshair).observe(document.body, { childList: true, subtree: true });
     setInterval(checkCrosshair, 500);
 })();
+
