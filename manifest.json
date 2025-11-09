@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Miniblox Custom Crosshair",
   "version": "1.0",
-  "description": "Adds a customizable crosshair with color sliders for Miniblox.",
+  "description": "Adds a customizable crosshair with color sliders for Miniblox by Not_Senpai.",
   "permissions": ["storage"],
   "content_scripts": [
     {
@@ -11,7 +11,8 @@
     }
   ],
   "icons": {
-    "128": "icon.png"
+    "128": "wsp67.png"
   },
   "host_permissions": ["https://miniblox.io/*"]
 }
+
